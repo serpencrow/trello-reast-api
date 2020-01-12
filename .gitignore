@@ -1,0 +1,5 @@
+# IDEA files and folders
+**/.idea
+**/*.iml
+**/target
+**/.DS_Store
