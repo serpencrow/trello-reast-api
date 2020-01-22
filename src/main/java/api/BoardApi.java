@@ -3,7 +3,7 @@ package api;
 import beans.Board;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import constants.BoardApiConstants;
+import enums.BoardConstant;
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.builder.ResponseSpecBuilder;
@@ -24,7 +24,7 @@ import static org.hamcrest.Matchers.lessThan;
 
 public class BoardApi {
 
-    private Properties properties;
+    private Properties properties = PropertiesSingleton.get();;
     private ContentType contentType = URLENC;
     private HashMap<String, String> params = new HashMap<>();
 
@@ -40,50 +40,54 @@ public class BoardApi {
         }
 
         public BoardApiBuilder id(String id) {
-            boardApi.params.put(BoardApiConstants.ID, id);
+            boardApi.params.put(BoardConstant.ID.getConstantName(), id);
             return this;
         }
 
         public BoardApiBuilder name(String name) {
-            boardApi.params.put(BoardApiConstants.NAME, name);
+            boardApi.params.put(BoardConstant.NAME.getConstantName(), name);
             return this;
         }
 
         public BoardApiBuilder desc(String desc) {
-            boardApi.params.put(BoardApiConstants.DESCRIPTION, desc);
+            boardApi.params.put(BoardConstant.DESCRIPTION.getConstantName(), desc);
             return this;
         }
 
         public BoardApiBuilder closed(Boolean closingState) {
-            boardApi.params.put(BoardApiConstants.CLOSED, closingState.toString());
+            boardApi.params.put(BoardConstant.CLOSED.getConstantName(), closingState.toString());
             return this;
         }
 
-        public Response createBoard() {
-            return RestAssured.with()
-                    .spec(baseRequestConfiguration())
-                    .contentType(boardApi.contentType
-                            .withCharset(Charset.defaultCharset()))
-                    .params(boardApi.params)
-                    .log().all()
-                    .post(boardApi.properties.getProperty(ROOT_PATH)
-                            + boardApi.properties.getProperty(BOARDS_PATH)
-                    ).prettyPeek();
+        public Board createBoard() {
+            return formBoardFromResponse(
+                    RestAssured.with()
+                        .spec(baseRequestConfiguration())
+                        .contentType(boardApi.contentType
+                                .withCharset(Charset.defaultCharset()))
+                        .params(boardApi.params)
+                        .log().all()
+                        .post(boardApi.properties.getProperty(ROOT_PATH)
+                                + boardApi.properties.getProperty(BOARDS_PATH)
+                        ).prettyPeek()
+            );
         }
 
-        public Response getBoard(String id) {
-            return RestAssured.with()
-                    .spec(baseRequestConfiguration())
-                    .contentType(boardApi.contentType
-                            .withCharset(Charset.defaultCharset()))
-                    .log().all()
-                    .get(boardApi.properties.getProperty(ROOT_PATH)
-                            + boardApi.properties.getProperty(BOARDS_PATH)
-                            + id
-                    ).prettyPeek();
+        public Board getBoard(String id) {
+            return formBoardFromResponse(
+                    RestAssured.with()
+                        .spec(baseRequestConfiguration())
+                        .contentType(boardApi.contentType
+                                .withCharset(Charset.defaultCharset()))
+                        .log().all()
+                        .get(boardApi.properties.getProperty(ROOT_PATH)
+                                + boardApi.properties.getProperty(BOARDS_PATH)
+                                + id
+                        ).prettyPeek()
+            );
         }
 
-        public Response deleteBoard(String id) {
+        public int deleteBoard(String id) {
             return RestAssured.with()
                     .spec(baseRequestConfiguration())
                     .contentType(boardApi.contentType
@@ -92,36 +96,81 @@ public class BoardApi {
                     .delete(boardApi.properties.getProperty(ROOT_PATH)
                             + boardApi.properties.getProperty(BOARDS_PATH)
                             + id
-                    ).prettyPeek();
+                    ).prettyPeek()
+                    .then()
+                    .extract()
+                    .statusCode();
         }
 
-        public Response updateBoard(String id) {
-            return RestAssured.with()
-                    .spec(baseRequestConfiguration())
-                    .contentType(boardApi.contentType
-                            .withCharset(Charset.defaultCharset()))
-                    .params(boardApi.params)
-                    .log().all()
-                    .put(boardApi.properties.getProperty(ROOT_PATH)
-                            + boardApi.properties.getProperty(BOARDS_PATH)
-                            + id
-                    ).prettyPeek();
+        public Board updateBoard(String id) {
+            return formBoardFromResponse(
+                    RestAssured.with()
+                        .spec(baseRequestConfiguration())
+                        .contentType(boardApi.contentType
+                                .withCharset(Charset.defaultCharset()))
+                        .params(boardApi.params)
+                        .log().all()
+                        .put(boardApi.properties.getProperty(ROOT_PATH)
+                                + boardApi.properties.getProperty(BOARDS_PATH)
+                                + id
+                        ).prettyPeek()
+            );
         }
     }
 
-    public static BoardApiBuilder with() {
+    public static Board createBoard(final String name) {
         BoardApi api = new BoardApi();
-        api.properties = PropertiesSingleton.get();
-        return new BoardApiBuilder(api);
+        api.params.put(BoardConstant.NAME.getConstantName(), name);
+        return new BoardApiBuilder(api).createBoard();
     }
 
-    public static Board getBoard(Response response) {
-        return new Gson().
-                fromJson(response.asString().trim(),
-                        new TypeToken<Board>() {}.getType());
+    public static Board getBoard(final String id) {
+        BoardApi api = new BoardApi();
+        return new BoardApiBuilder(api).getBoard(id);
     }
 
-    public static ResponseSpecification successResponse() {
+    public static Board updateBoard(final String id, final BoardConstant boardConstant,
+                             final String value) {
+        BoardApi api = new BoardApi();
+
+        switch (boardConstant) {
+            case ID:
+                break;
+
+            case NAME:
+            case DESCRIPTION:
+                api.params.put(boardConstant.getConstantName(), value);
+
+            case CLOSED:
+                if ("true".equals(value) || "false".equals(value)) {
+                    api.params.put(boardConstant.getConstantName(), value);
+                }
+                break;
+        }
+
+        if (!BoardConstant.ID.equals(boardConstant)) {
+            return new BoardApiBuilder(api).updateBoard(id);
+        } else {
+            return null;
+        }
+    }
+
+    public static int deleteBoard(final String id) {
+        BoardApi api = new BoardApi();
+        return new BoardApiBuilder(api).deleteBoard(id);
+    }
+
+    private static Board formBoardFromResponse(Response response) {
+        if (HttpStatus.SC_OK == response.then().extract().statusCode()) {
+            return new Gson().
+                    fromJson(response.asString().trim(),
+                            new TypeToken<Board>() {}.getType());
+        } else {
+            return null;
+        }
+    }
+
+    private static ResponseSpecification successResponse() {
         return new ResponseSpecBuilder()
                 .expectContentType(JSON)
                 .expectResponseTime(lessThan(20000L))
@@ -129,7 +178,7 @@ public class BoardApi {
                 .build();
     }
 
-    public static ResponseSpecification notFoundResponse() {
+    private static ResponseSpecification notFoundResponse() {
         return new ResponseSpecBuilder()
                 .expectContentType(TEXT)
                 .expectResponseTime(lessThan(20000L))
