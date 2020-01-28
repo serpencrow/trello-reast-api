@@ -1,26 +1,25 @@
 import api.BoardApi;
 import beans.Board;
-import enums.BoardConstant;
 import org.apache.http.HttpStatus;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.nullValue;
 
 public class RestApiTest {
 
     @Test
     public void createNewBoardsTest() {
-        String boardName1 = "boardName1";
-        String boardName2 = "boardName2";
+        Board board1 = BoardApi.createBoard();
+        Board board2 = BoardApi.createBoard();
 
-        Board board1 = BoardApi.createBoard(boardName1);
-        Board board2 = BoardApi.createBoard(boardName2);
-
-        assertThat(board1.name, equalTo(boardName1));
-        assertThat(board2.name, equalTo(boardName2));
+        assertThat(board1.closed, equalTo(false));
+        assertThat(board2.closed, equalTo(false));
 
         BoardApi.deleteBoard(board1.id);
         BoardApi.deleteBoard(board2.id);
@@ -28,43 +27,48 @@ public class RestApiTest {
 
     @Test
     public void closeBoardTest() {
-        String boardName1 = "boardName3";
-
-        Board board1 = BoardApi.createBoard(boardName1);
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.CLOSED, "true");
+        Board board1 = BoardApi.createBoard();
+        board1 = BoardApi.boardApiBuilder()
+                .closed(true)
+                .updateBoard(board1.id);
 
         assertThat(board1.closed, equalTo(true));
     }
 
     @Test
     public void deleteBoardTest() {
-        String boardName1 = "boardName4";
+        Board board1 = BoardApi.createBoard();
 
-        Board board1 = BoardApi.createBoard(boardName1);
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.CLOSED, "true");
+        board1 = BoardApi.boardApiBuilder()
+                .closed(true)
+                .updateBoard(board1.id);
 
         assertThat(BoardApi.deleteBoard(board1.id), equalTo(HttpStatus.SC_OK));
     }
 
     @Test
     public void closeNonexistentBoardTest() {
-        String boardName1 = "boardName5";
-
-        Board board1 = BoardApi.createBoard(boardName1);
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.CLOSED, "true");
+        Board board1 = BoardApi.createBoard();
+        board1 = BoardApi.boardApiBuilder()
+                .closed(true)
+                .updateBoard(board1.id);
 
         BoardApi.deleteBoard(board1.id);
 
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.CLOSED, "true");
+        board1 = BoardApi.boardApiBuilder()
+                .closed(true)
+                .updateBoard(board1.id);
+
         assertThat(board1, is(nullValue()));
     }
 
     @Test
     public void deleteNonexistentBoardTest() {
-        String boardName1 = "boardName6";
+        Board board1 = BoardApi.createBoard();
 
-        Board board1 = BoardApi.createBoard(boardName1);
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.CLOSED, "true");
+        board1 = BoardApi.boardApiBuilder()
+                .closed(true)
+                .updateBoard(board1.id);
 
         assertThat(BoardApi.deleteBoard(board1.id), equalTo(HttpStatus.SC_OK));
         assertThat(BoardApi.deleteBoard(board1.id), equalTo(HttpStatus.SC_NOT_FOUND));
@@ -72,20 +76,22 @@ public class RestApiTest {
 
     @Test
     public void getExistingBoardTest() {
-        String boardName1 = "boardName7";
-        Board board1 = BoardApi.createBoard(boardName1);
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.DESCRIPTION, "sas123");
+        Board board1 = BoardApi.createBoard();
+        String boardDescription = "testDescription";
+
+        board1 = BoardApi.boardApiBuilder()
+                .desc(boardDescription)
+                .updateBoard(board1.id);
 
         Board board2 = BoardApi.getBoard(board1.id);
 
-        assertThat(board2.desc, allOf(startsWith("sas"), endsWith("123")));
+        assertThat(board2.desc, allOf(startsWith("test"), endsWith("Description")));
         assertThat(BoardApi.deleteBoard(board1.id), equalTo(HttpStatus.SC_OK));
     }
 
     @Test
     public void getNonexistentBoardTest() {
-        String boardName1 = "boardName8";
-        Board board1 = BoardApi.createBoard(boardName1);
+        Board board1 = BoardApi.createBoard();
         assertThat(BoardApi.deleteBoard(board1.id), equalTo(HttpStatus.SC_OK));
 
         Board board2 = BoardApi.getBoard(board1.id);
@@ -94,20 +100,31 @@ public class RestApiTest {
 
     @Test
     public void updateBoardTest() {
-        String boardName1 = "boardName9";
-        Board board1 = BoardApi.createBoard(boardName1);
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.DESCRIPTION, "sas123");
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.DESCRIPTION, "sas124");
-        board1 = BoardApi.updateBoard(board1.id, BoardConstant.DESCRIPTION, "sas126");
+        Board board1 = BoardApi.createBoard();
+        Board board2 = BoardApi.createBoard();
+        Board board3 = BoardApi.createBoard();
+        String boardDescription1 = "7test";
+        String boardDescription2 = "7test123";
+        String boardDescription3 = "7test225";
 
-        assertThat(board1.desc,
-                anyOf(
-                        containsString("123"),
-                        containsString("124"),
-                        containsString("126")
-                ));
+        board1 = BoardApi.boardApiBuilder()
+                .desc(boardDescription1)
+                .updateBoard(board1.id);
+        board2 = BoardApi.boardApiBuilder()
+                .desc(boardDescription2)
+                .updateBoard(board2.id);
+        board3 = BoardApi.boardApiBuilder()
+                .desc(boardDescription3)
+                .updateBoard(board3.id);
+
+        assertThat(
+                Arrays.asList(board1.desc, board2.desc, board3.desc),
+                containsInAnyOrder(boardDescription2, boardDescription3, boardDescription1)
+        );
 
         assertThat(BoardApi.deleteBoard(board1.id), equalTo(HttpStatus.SC_OK));
+        assertThat(BoardApi.deleteBoard(board2.id), equalTo(HttpStatus.SC_OK));
+        assertThat(BoardApi.deleteBoard(board3.id), equalTo(HttpStatus.SC_OK));
     }
 }
 

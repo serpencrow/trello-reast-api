@@ -11,6 +11,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import utils.PropertiesSingleton;
 
@@ -39,10 +40,11 @@ public class BoardApi {
             this.boardApi = boardApi;
         }
 
+        /*
         public BoardApiBuilder id(String id) {
             boardApi.params.put(BoardConstant.ID.getConstantName(), id);
             return this;
-        }
+        }*/
 
         public BoardApiBuilder name(String name) {
             boardApi.params.put(BoardConstant.NAME.getConstantName(), name);
@@ -118,41 +120,20 @@ public class BoardApi {
         }
     }
 
-    public static Board createBoard(final String name) {
+    public static BoardApiBuilder boardApiBuilder() {
+        return new BoardApiBuilder(new BoardApi());
+    }
+
+    public static Board createBoard() {
         BoardApi api = new BoardApi();
-        api.params.put(BoardConstant.NAME.getConstantName(), name);
+        api.params.put(BoardConstant.NAME.getConstantName(),
+                RandomStringUtils.randomAlphabetic(40));
         return new BoardApiBuilder(api).createBoard();
     }
 
     public static Board getBoard(final String id) {
         BoardApi api = new BoardApi();
         return new BoardApiBuilder(api).getBoard(id);
-    }
-
-    public static Board updateBoard(final String id, final BoardConstant boardConstant,
-                             final String value) {
-        BoardApi api = new BoardApi();
-
-        switch (boardConstant) {
-            case ID:
-                break;
-
-            case NAME:
-            case DESCRIPTION:
-                api.params.put(boardConstant.getConstantName(), value);
-
-            case CLOSED:
-                if ("true".equals(value) || "false".equals(value)) {
-                    api.params.put(boardConstant.getConstantName(), value);
-                }
-                break;
-        }
-
-        if (!BoardConstant.ID.equals(boardConstant)) {
-            return new BoardApiBuilder(api).updateBoard(id);
-        } else {
-            return null;
-        }
     }
 
     public static int deleteBoard(final String id) {
